@@ -1,0 +1,14 @@
+{
+  "name": "forge-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Landing page for Forge — open-source bulk media tooling",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}

@@ -1,0 +1,58 @@
+name: Release
+
+# Push a tag like `v0.1.1` (must match the version in package.json) to fire this.
+# Each platform builds in parallel; electron-builder publishes installers + the
+# update manifest (latest-mac.yml / latest.yml / latest-linux.yml) to the GitHub
+# Release that the tag created.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14         # Apple Silicon runner — builds arm64 + x64 mac
+            args: --mac --arm64 --x64
+          - os: windows-latest
+            args: --win --x64 --arm64
+          - os: ubuntu-latest
+            args: --linux --x64 --arm64
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build renderer/main/preload bundles
+        run: npm run build
+
+      - name: Package + publish (${{ matrix.os }})
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Apple notarization — fill in the secrets if you ever buy an Apple
+          # Developer account. Without them, the macOS build is unsigned and
+          # users see the Gatekeeper "right-click → Open" prompt once.
+          # CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npx electron-builder ${{ matrix.args }} --publish always --config electron-builder.yml
