@@ -232,8 +232,8 @@ async function render(): Promise<void> {
           <div class="step"><div class="num">02</div><h4>Open the installer</h4>
             <p>Mac: open the <code class="kbd">.dmg</code>, drag into <code class="kbd">Applications</code>. Windows: run the <code class="kbd">.exe</code>.</p>
           </div>
-          <div class="step"><div class="num">03</div><h4>First launch</h4>
-            <p>Mac may show a Gatekeeper warning (Forge isn't code-signed). Right-click the app, choose <strong>Open</strong>, then confirm.</p>
+          <div class="step"><div class="num">03</div><h4>First launch (Mac)</h4>
+            <p>If you see <em>"Forge is damaged"</em> — that's a misleading macOS warning for unsigned apps. Run this once in Terminal: <code class="kbd">xattr -dr com.apple.quarantine /Applications/Forge.app</code></p>
           </div>
           <div class="step"><div class="num">04</div><h4>Auto-updates</h4>
             <p>Forge checks GitHub for new versions on launch and updates itself in the background.</p>

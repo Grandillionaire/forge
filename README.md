@@ -30,7 +30,32 @@ Download from the [latest release](https://github.com/Grandillionaire/forge/rele
 | Linux x64 | `Forge-x.y.z-x64.AppImage` |
 | Linux ARM64 | `Forge-x.y.z-arm64.AppImage` |
 
-The app isn't code-signed. On macOS, the first launch will prompt with "cannot verify the developer" — right-click the app, choose **Open**, then confirm. On Windows, click **More info → Run anyway** in SmartScreen. After that, the app self-updates from GitHub Releases.
+### First launch — read this first
+
+Forge isn't paid-code-signed (no Apple Developer cert / Windows EV cert), so both OSes show a scary warning the first time. **The app is fine; ignore the wording.**
+
+#### macOS — `"Forge is damaged and cannot be opened"`
+
+Apple shows this misleading message for any unsigned downloaded app since Sonoma. It is **not** damaged. Run this once in Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Forge.app
+```
+
+Then open Forge normally. From v0.1.1 onward, builds include ad-hoc codesigning which downgrades the message to the older `"cannot verify the developer"` prompt that **right-click → Open** can dismiss instead.
+
+#### Windows — `"Windows protected your PC"`
+
+SmartScreen shows this for any unsigned `.exe`. Click **More info → Run anyway**.
+
+#### Linux — `.AppImage` won't execute
+
+```bash
+chmod +x Forge-*.AppImage
+./Forge-*.AppImage
+```
+
+After the first launch, Forge self-updates from GitHub Releases on every subsequent run. No more friction.
 
 ## Build from source
 

@@ -20,6 +20,11 @@ mac:
   target:
     - target: dmg
       arch: [arm64, x64]
+  # Ad-hoc codesigning. Without it, macOS Sonoma+ shows a hard "Forge is damaged
+  # and cannot be opened" message for any quarantined download — no right-click
+  # bypass. Ad-hoc converts that to the older "unidentified developer" prompt
+  # which right-click → Open does dismiss. A real Developer ID still costs $99/yr.
+  identity: "-"
   hardenedRuntime: false
   gatekeeperAssess: false
 dmg:

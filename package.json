@@ -1,7 +1,7 @@
 {
   "name": "forge",
   "productName": "Forge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Forge — bulk media tooling. AI image upscaling, batch compression, AI video upscaling. Local-first, GPU-accelerated.",
   "main": "out/main/index.js",
   "author": {
