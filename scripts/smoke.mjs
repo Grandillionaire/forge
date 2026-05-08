@@ -1,9 +1,11 @@
 // Smoke test runner — exercises the real pipelines against real files.
 // Bypasses Electron's window/IPC layer; everything else (sharp, ffmpeg-static,
-// exiftool-vendored, realesrgan-ncnn-vulkan) is the actual production code.
+// exiftool-vendored, realesrgan-ncnn-vulkan, heic-convert) is the actual
+// production code.
 //
 // Usage: node scripts/smoke.mjs [step]
-//   step ∈ { compress, upscale-lanczos, upscale-ai, video, all }
+//   step ∈ { compress, heic, upscale-lanczos, upscale-ai, video,
+//            video-compress, all }
 //
 // Stages a fake `electron` module before any production import touches it,
 // so jobs/* can call paths.ts without booting a real Electron app.
@@ -379,12 +381,123 @@ async function step_video() {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
+async function step_heic() {
+  log('\n── HEIC → JPEG (Image compress with iPhone input) ──');
+  const sharp = require_('sharp');
+  const heicConvert = require_('heic-convert');
+
+  // Pick any .heic on this machine — Mac users have plenty
+  const candidates = [
+    `${process.env.HOME}/Desktop/BEACON`,
+    `${process.env.HOME}/Pictures`,
+    `${process.env.HOME}/Library/Mobile Documents/com~apple~CloudDocs`,
+  ];
+  let inP = null;
+  for (const dir of candidates) {
+    if (!fs.existsSync(dir)) continue;
+    const found = fs
+      .readdirSync(dir)
+      .find((f) => /\.heic$/i.test(f));
+    if (found) {
+      inP = path.join(dir, found);
+      break;
+    }
+  }
+  if (!inP) {
+    log('  no HEIC files found in BEACON/Pictures/iCloud — skipping (this is fine if user has none)');
+    return;
+  }
+  log(`  input: ${inP}`);
+
+  const outDir = path.join(OUT_DIR, 'heic');
+  fs.mkdirSync(outDir, { recursive: true });
+  const outP = path.join(outDir, path.parse(inP).name + '_compressed.jpg');
+  const inSz = fs.statSync(inP).size;
+
+  await withTimer(`HEIC → JPEG round-trip`, async () => {
+    // Mirrors the production imageDecode.ts path
+    const inputBuffer = fs.readFileSync(inP);
+    const pngBuf = await heicConvert({ buffer: inputBuffer, format: 'PNG' });
+    const buf = pngBuf instanceof Uint8Array
+      ? Buffer.from(pngBuf.buffer, pngBuf.byteOffset, pngBuf.byteLength)
+      : Buffer.from(pngBuf);
+    await sharp(buf, { failOn: 'none' })
+      .rotate()
+      .jpeg({ quality: 85, mozjpeg: true })
+      .toFile(outP);
+    const outSz = fs.statSync(outP).size;
+    const meta = await sharp(outP).metadata();
+    log(`  ${bytes(inSz)} HEIC → ${bytes(outSz)} JPEG  ${meta.width}×${meta.height}`);
+    if (meta.format !== 'jpeg') throw new Error('output is not JPEG');
+    if (!meta.width || !meta.height) throw new Error('output has no dimensions');
+  });
+}
+
+async function step_video_compress() {
+  log('\n── Video compress (FFmpeg single-pass H.264) ──');
+  const ffmpeg = require_('ffmpeg-static');
+  const ffPath = typeof ffmpeg === 'string' ? ffmpeg : ffmpeg.default ?? ffmpeg;
+  const ffprobe = require_('@ffprobe-installer/ffprobe');
+  const ffprobePath = ffprobe.path;
+
+  const inP = await withTimer('synthesize 3s 1920×1080 source clip', async () => {
+    const clip = path.join(IN_DIR, 'compress_source_1080p.mp4');
+    if (fs.existsSync(clip)) return clip;
+    const { execSync } = await import('node:child_process');
+    execSync(
+      `"${ffPath}" -y -f lavfi -i "testsrc=duration=3:size=1920x1080:rate=30" -f lavfi -i "sine=frequency=440:duration=3" -c:v libx264 -crf 18 -pix_fmt yuv420p -c:a aac -shortest "${clip}"`,
+      { stdio: 'pipe' },
+    );
+    return clip;
+  });
+  const inSz = fs.statSync(inP).size;
+  log(`  source: ${bytes(inSz)} 1920×1080 3s with audio`);
+
+  const outDir = path.join(OUT_DIR, 'video-compress');
+  fs.mkdirSync(outDir, { recursive: true });
+  const outP = path.join(outDir, 'compress_source_1080p_compressed.mp4');
+
+  // Mirrors videoCompress.ts: scale to 720p, CRF 24, medium preset, audio 128k
+  await withTimer('compress 1080p → 720p, CRF 24, audio 128k', async () => {
+    const { execSync } = await import('node:child_process');
+    const args = [
+      '-y',
+      '-i', inP,
+      '-vf', 'scale=-2:720',
+      '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p',
+      '-preset', 'medium',
+      '-crf', '24',
+      '-movflags', '+faststart',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      outP,
+    ];
+    execSync(`"${ffPath}" ${args.map((a) => `"${a}"`).join(' ')}`, { stdio: 'pipe' });
+  });
+
+  const outSz = fs.statSync(outP).size;
+  const probe = JSON.parse(
+    (await import('node:child_process')).execSync(
+      `"${ffprobePath}" -v error -print_format json -show_streams "${outP}"`,
+    ).toString(),
+  );
+  const v = probe.streams.find((s) => s.codec_type === 'video');
+  const a = probe.streams.find((s) => s.codec_type === 'audio');
+  const savedPct = Math.round((1 - outSz / inSz) * 100);
+  log(`  output: ${v.width}×${v.height}  audio=${!!a}  ${bytes(outSz)}  (${savedPct}% smaller)`);
+  if (v.height !== 720) throw new Error(`expected 720p, got ${v.height}`);
+  if (!a) throw new Error('audio dropped');
+}
+
 const which = process.argv[2] ?? 'all';
 const steps = {
   compress: step_compress,
+  heic: step_heic,
   'upscale-lanczos': step_upscale_lanczos,
   'upscale-ai': step_upscale_ai,
   video: step_video,
+  'video-compress': step_video_compress,
 };
 
 (async () => {
