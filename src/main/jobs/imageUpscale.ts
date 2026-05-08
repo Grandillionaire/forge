@@ -6,6 +6,7 @@ import os from 'node:os';
 import { ensureDir } from '../paths';
 import { isInstalled, runUpscale } from '../realesrgan';
 import { isHeic, openImage } from '../imageDecode';
+import { runCloudUpscale, type FalModelId } from '../falai';
 import type {
   ImageUpscaleOptions,
   JobItem,
@@ -24,9 +25,13 @@ export async function runImageUpscale(args: {
   const { jobId, items, options, onProgress, signal } = args;
   await ensureDir(options.outputDir);
 
-  // Real-ESRGAN is GPU-bound — run one at a time. Lanczos fallback can fan out.
-  const useAi = options.preferAi && isInstalled();
-  const queue = new PQueue({ concurrency: useAi ? 1 : Math.max(2, os.cpus().length - 1) });
+  const isCloud = options.engine === 'cloud';
+  const useAi = !isCloud && options.preferAi && isInstalled();
+  // Local Real-ESRGAN: GPU-serial. Cloud: 3 parallel calls (fal queues internally
+  // and bills per call regardless, so parallelism just shaves wall-clock time).
+  // Lanczos fallback can fully fan out.
+  const concurrency = isCloud ? 3 : useAi ? 1 : Math.max(2, os.cpus().length - 1);
+  const queue = new PQueue({ concurrency });
 
   const results: JobResultItem[] = [];
 
@@ -63,7 +68,46 @@ export async function runImageUpscale(args: {
           }
 
           try {
-            if (useAi) {
+            if (isCloud) {
+              const tmpPng =
+                ext === 'png' ? outPath : outPath.replace(/\.\w+$/, '.tmp.png');
+              onProgress({ jobId, itemId: item.id, pct: 3, stage: 'Cloud upscale' });
+              let lastLog: string | undefined;
+              let currentPct = 3;
+              await runCloudUpscale({
+                apiKey: options.apiKey ?? '',
+                model: (options.cloudModel ?? 'fal-ai/aura-sr') as FalModelId,
+                inputPath: workingInput,
+                outputPath: tmpPng,
+                scale: options.scale,
+                onProgress: (pct) => {
+                  currentPct = Math.max(3, Math.min(99, pct));
+                  onProgress({
+                    jobId,
+                    itemId: item.id,
+                    pct: currentPct,
+                    stage: 'Cloud upscale',
+                    log: lastLog,
+                  });
+                },
+                onLog: (line) => {
+                  lastLog = line;
+                  onProgress({
+                    jobId,
+                    itemId: item.id,
+                    pct: currentPct,
+                    stage: 'Cloud upscale',
+                    log: line,
+                  });
+                },
+                signal,
+              });
+              if (ext !== 'png') {
+                onProgress({ jobId, itemId: item.id, pct: 95, stage: 'Encoding' });
+                await transcode(tmpPng, outPath, ext);
+                await (await import('node:fs/promises')).rm(tmpPng, { force: true });
+              }
+            } else if (useAi) {
               const tmpPng =
                 ext === 'png' ? outPath : outPath.replace(/\.\w+$/, '.tmp.png');
               onProgress({
@@ -91,7 +135,6 @@ export async function runImageUpscale(args: {
                 },
                 onLog: (line) => {
                   lastLog = line;
-                  // Forward the line without regressing the bar
                   onProgress({
                     jobId,
                     itemId: item.id,

@@ -80,16 +80,28 @@ You don't need to install it for **Image compress** or **Video compress** — th
 
 > Make images bigger and sharper.
 
+**Choose your engine first:**
+
+| | **Local** | **Cloud (fal.ai)** |
+|---|---|---|
+| Cost | Free | $0.001 – $0.04 per image |
+| Privacy | 100% local | Sends each image to fal.ai |
+| Internet | Not needed | Required |
+| Setup | One-time AI engine install (50 MB) | Bring your own fal.ai API key |
+| Quality | Real-ESRGAN — solid baseline | Often noticeably sharper, especially `clarity-upscaler` |
+
+#### Local engine
+
 **The flow:**
-
 1. **Drop images** anywhere on the window, or click the dropzone to pick from Finder
-2. Pick a **scale** (2×, 3×, 4×)
-3. Pick a **model** that matches your content
-4. Pick an **output format** (PNG / JPG / WebP)
-5. Choose an **output folder** (defaults to `~/Downloads/Forge`)
-6. Click **Upscale**
+2. Pick **engine: Local**
+3. Pick a **scale** (2×, 3×, 4×)
+4. Pick a **model** that matches your content
+5. Pick an **output format** (PNG / JPG / WebP)
+6. Choose an **output folder** (defaults to `~/Downloads/Forge`)
+7. Click **Upscale**
 
-**Models:**
+**Local models:**
 
 | Model | Use for |
 |---|---|
@@ -103,9 +115,31 @@ If you're not sure, start with `realesrgan-x4plus`.
 - **On** (default): Uses Real-ESRGAN. Best quality. Requires the AI engine to be installed.
 - **Off**, or AI engine not installed: Falls back to **Lanczos** — a high-quality classical resize via Sharp/libvips. Not AI, but still good for cases where the AI is overkill.
 
-**HEIC inputs:** iPhone photos (HEIC/HEIF) are decoded automatically. You don't need to convert them first.
+#### Cloud engine (fal.ai)
 
-**Speed expectation:** On an Apple M-series Mac, a 1024×1024 image at 4× takes ~5–10 seconds with AI. CPU-only Lanczos is sub-second.
+**The flow:**
+1. Pick **engine: Cloud**
+2. Pick a **cloud model** — see costs below
+3. First time only: paste your fal.ai API key (get one at [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys))
+4. Pick scale, output format, output folder
+5. Click **Upscale on cloud · $X.XX** (the button shows the estimated total cost)
+
+**Cloud models:**
+
+| Model | Cost (rough) | Best for |
+|---|---|---|
+| `aura-sr` | ~$0.001/image | Cheapest, fast, photographic — good default |
+| `esrgan` | ~$0.005/image | Same model as Local but on their GPU |
+| `clarity-upscaler` | ~$0.04/image | Premium photoreal — much sharper than the cheaper options |
+| `ccsr` | ~$0.04/image | Content-aware super-resolution, faithful to source |
+
+**Privacy note:** Cloud is the only Forge feature that sends your files to a third party. Each upscale uploads the source to fal.ai, runs there, and downloads the result. fal.ai bills your account directly. The API key stays in localStorage on your device.
+
+**HEIC inputs:** iPhone photos (HEIC/HEIF) are decoded automatically before either engine runs. You don't need to convert them first.
+
+**Speed expectation:**
+- Local: 1024×1024 at 4× ≈ 5–10s on Apple M-series
+- Cloud: usually 5–30s/image including upload/queue/download time
 
 **Output naming:** `<originalname>_x<scale>.<ext>` — e.g. `vacation_x4.jpg`.
 

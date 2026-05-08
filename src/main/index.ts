@@ -392,12 +392,19 @@ async function runJobHandler<O>(
    Loose shape checks. We don't strictly enforce every enum because the option
    handlers themselves fall back gracefully on unrecognized values. */
 function isImageUpscaleOptions(o: unknown): o is ImageUpscaleOptions {
-  return typeof o === 'object' && o !== null
-    && [2, 3, 4].includes((o as ImageUpscaleOptions).scale)
-    && isString((o as ImageUpscaleOptions).model)
-    && isString((o as ImageUpscaleOptions).outputFormat)
-    && isString((o as ImageUpscaleOptions).outputDir)
-    && typeof (o as ImageUpscaleOptions).preferAi === 'boolean';
+  if (typeof o !== 'object' || o === null) return false;
+  const u = o as ImageUpscaleOptions;
+  if (!([2, 3, 4].includes(u.scale))) return false;
+  if (!isString(u.model)) return false;
+  if (!isString(u.outputFormat)) return false;
+  if (!isString(u.outputDir)) return false;
+  if (typeof u.preferAi !== 'boolean') return false;
+  if (u.engine !== 'local' && u.engine !== 'cloud') return false;
+  if (u.engine === 'cloud') {
+    if (!isString(u.cloudModel)) return false;
+    if (!isString(u.apiKey) || u.apiKey.length < 10) return false;
+  }
+  return true;
 }
 function isImageCompressOptions(o: unknown): o is ImageCompressOptions {
   if (typeof o !== 'object' || o === null) return false;

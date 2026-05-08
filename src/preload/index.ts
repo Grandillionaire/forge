@@ -2,12 +2,26 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 export type JobKind = 'image-upscale' | 'image-compress' | 'video-upscale';
 
+export type CloudUpscaleModel =
+  | 'fal-ai/aura-sr'
+  | 'fal-ai/esrgan'
+  | 'fal-ai/clarity-upscaler'
+  | 'fal-ai/ccsr';
+
 export interface ImageUpscaleOptions {
   scale: 2 | 3 | 4;
+  // Local Real-ESRGAN model — only used when engine === 'local'
   model: 'realesrgan-x4plus' | 'realesrgan-x4plus-anime' | 'realesr-animevideov3';
   outputFormat: 'png' | 'jpg' | 'webp';
   outputDir: string;
+  // 'local' uses Real-ESRGAN ncnn-vulkan (with Lanczos fallback if AI engine
+  // not installed). 'cloud' calls fal.ai using the user's API key.
+  engine: 'local' | 'cloud';
+  // When engine === 'local', fall back to Lanczos if AI not installed.
   preferAi: boolean;
+  // When engine === 'cloud', which fal.ai endpoint and the user's key.
+  cloudModel?: CloudUpscaleModel;
+  apiKey?: string;
 }
 
 export interface ImageCompressOptions {
