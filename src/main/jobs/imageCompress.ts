@@ -1,10 +1,10 @@
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
-import sharp from 'sharp';
 import PQueue from 'p-queue';
 import os from 'node:os';
 import { exiftool } from 'exiftool-vendored';
 import { ensureDir } from '../paths';
+import { openImage, isHeic } from '../imageDecode';
 import type {
   ImageCompressOptions,
   JobItem,
@@ -34,19 +34,29 @@ export async function runImageCompress(args: {
           if (signal.aborted) throw new Error('cancelled');
           const bytesIn = (await stat(item.inputPath)).size;
           const inExt = path.extname(item.inputPath).slice(1).toLowerCase();
+          // HEIC inputs always need re-encoding (sharp can't write HEIC). When the
+          // user picks "preserve" with an HEIC input, default to JPEG — the obvious
+          // intent is "convert iPhone photos to something universal".
+          const inferredFromExt = ['heic', 'heif'].includes(inExt)
+            ? 'jpeg'
+            : ['jpg', 'jpeg'].includes(inExt)
+            ? 'jpeg'
+            : (inExt as 'jpeg' | 'webp' | 'avif' | 'png');
           const targetFormat =
-            options.format === 'preserve'
-              ? (['jpg', 'jpeg'].includes(inExt) ? 'jpeg' : (inExt as 'jpeg' | 'webp' | 'avif' | 'png'))
-              : options.format;
+            options.format === 'preserve' ? inferredFromExt : options.format;
           const outExt = targetFormat === 'jpeg' ? 'jpg' : targetFormat;
           const base = path.parse(item.inputPath).name;
           const outPath = path.join(options.outputDir, `${base}_compressed.${outExt}`);
 
-          onProgress({ jobId, itemId: item.id, pct: 5, stage: 'Compressing' });
-          let pipe = sharp(item.inputPath, { failOn: 'none' }).rotate(); // honor EXIF rotation
+          if (isHeic(item.inputPath)) {
+            onProgress({ jobId, itemId: item.id, pct: 3, stage: 'Decoding HEIC' });
+          } else {
+            onProgress({ jobId, itemId: item.id, pct: 5, stage: 'Compressing' });
+          }
+          let pipe = (await openImage(item.inputPath)).rotate(); // honor EXIF rotation
 
           if (options.maxWidth && options.maxWidth > 0) {
-            const meta = await sharp(item.inputPath, { failOn: 'none' }).metadata();
+            const meta = await pipe.clone().metadata();
             if ((meta.width ?? 0) > options.maxWidth) {
               pipe = pipe.resize({
                 width: options.maxWidth,

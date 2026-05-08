@@ -10,12 +10,15 @@ import * as realesrgan from './realesrgan';
 import { runImageUpscale } from './jobs/imageUpscale';
 import { runImageCompress } from './jobs/imageCompress';
 import { runVideoUpscale } from './jobs/videoUpscale';
+import { runVideoCompress } from './jobs/videoCompress';
+import { openImage } from './imageDecode';
 import { setupAutoUpdater } from './updater';
 import type {
   ImageCompressOptions,
   ImageUpscaleOptions,
   JobItem,
   ProgressEvent,
+  VideoCompressOptions,
   VideoUpscaleOptions,
 } from '../preload/index';
 
@@ -177,13 +180,19 @@ function registerIpc(): void {
           const ext = path.extname(p).slice(1).toLowerCase();
           const sz = (await stat(p)).size;
           if ((IMAGE_EXT as readonly string[]).includes(ext)) {
+            // openImage() handles HEIC via heic-convert; sharp can decode
+            // the rest natively. Metadata still uses sharp directly because
+            // its HEIC header parsing works without the HEVC plugin.
             const meta = await sharp(p, { failOn: 'none' }).metadata();
-            const thumb = await sharp(p, { failOn: 'none' })
-              .rotate()
-              .resize({ width: 96, withoutEnlargement: true })
-              .jpeg({ quality: 70 })
-              .toBuffer()
-              .catch(() => null);
+            const decoded = await openImage(p).catch(() => null);
+            const thumb = decoded
+              ? await decoded
+                  .rotate()
+                  .resize({ width: 96, withoutEnlargement: true })
+                  .jpeg({ quality: 70 })
+                  .toBuffer()
+                  .catch(() => null)
+              : null;
             return {
               path: p,
               ok: true,
@@ -252,6 +261,13 @@ function registerIpc(): void {
       return runWithController(items, options, e, runVideoUpscale);
     },
   );
+  ipcMain.handle(
+    'job:videoCompress',
+    async (e, items: unknown, options: unknown) => {
+      if (!isJobItems(items) || !isVideoCompressOptions(options)) return { jobId: '', items: [] };
+      return runWithController(items, options, e, runVideoCompress);
+    },
+  );
 }
 
 /* ── Option validators ──────────────────────────────────────────────────────
@@ -280,6 +296,15 @@ function isVideoUpscaleOptions(o: unknown): o is VideoUpscaleOptions {
     && isString(v.model)
     && typeof v.crf === 'number' && v.crf >= 0 && v.crf <= 51
     && isString(v.preset)
+    && isString(v.outputDir);
+}
+function isVideoCompressOptions(o: unknown): o is VideoCompressOptions {
+  if (typeof o !== 'object' || o === null) return false;
+  const v = o as VideoCompressOptions;
+  return isString(v.resolution)
+    && typeof v.crf === 'number' && v.crf >= 0 && v.crf <= 51
+    && isString(v.preset)
+    && isString(v.audioBitrate)
     && isString(v.outputDir);
 }
 

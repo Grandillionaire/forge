@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Sparkles, Minimize2, Wand2 } from 'lucide-react';
+import { Sparkles, Minimize2, Wand2, FileVideo2 } from 'lucide-react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ImageUpscaleView } from './components/ImageUpscaleView';
 import { ImageCompressView } from './components/ImageCompressView';
 import { VideoUpscaleView } from './components/VideoUpscaleView';
+import { VideoCompressView } from './components/VideoCompressView';
 import { DragOverlay } from './components/DragOverlay';
 import { OnboardingWizard } from './components/OnboardingWizard';
 
-type Tab = 'image-upscale' | 'image-compress' | 'video-upscale';
+type Tab = 'image-upscale' | 'image-compress' | 'video-upscale' | 'video-compress';
 
-const TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
-  { id: 'image-upscale', label: 'Image upscale', icon: <Sparkles className="w-3.5 h-3.5" /> },
-  { id: 'image-compress', label: 'Compress · Metadata', icon: <Minimize2 className="w-3.5 h-3.5" /> },
-  { id: 'video-upscale', label: 'Video upscale', icon: <Wand2 className="w-3.5 h-3.5" /> },
+const TABS: Array<{ id: Tab; label: string; shortLabel: string; icon: React.ReactNode }> = [
+  { id: 'image-upscale',  label: 'Image upscale',  shortLabel: 'Img upscale',  icon: <Sparkles className="w-3.5 h-3.5" /> },
+  { id: 'image-compress', label: 'Image compress', shortLabel: 'Img compress', icon: <Minimize2 className="w-3.5 h-3.5" /> },
+  { id: 'video-upscale',  label: 'Video upscale',  shortLabel: 'Vid upscale',  icon: <Wand2 className="w-3.5 h-3.5" /> },
+  { id: 'video-compress', label: 'Video compress', shortLabel: 'Vid compress', icon: <FileVideo2 className="w-3.5 h-3.5" /> },
 ];
 
 export default function App() {
@@ -68,7 +70,8 @@ export default function App() {
             <TabButton key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>
               <span className="flex items-center gap-2 justify-center">
                 {t.icon}
-                <span className="hidden sm:inline">{t.label}</span>
+                <span className="hidden sm:hidden lg:inline">{t.label}</span>
+                <span className="hidden sm:inline lg:hidden">{t.shortLabel}</span>
               </span>
             </TabButton>
           ))}
@@ -102,6 +105,7 @@ export default function App() {
                   installStage={installStage}
                 />
               )}
+              {tab === 'video-compress' && <VideoCompressView />}
             </motion.div>
           </AnimatePresence>
         </div>

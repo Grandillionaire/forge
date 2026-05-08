@@ -5,6 +5,7 @@ import PQueue from 'p-queue';
 import os from 'node:os';
 import { ensureDir } from '../paths';
 import { isInstalled, runUpscale } from '../realesrgan';
+import { isHeic, openImage } from '../imageDecode';
 import type {
   ImageUpscaleOptions,
   JobItem,
@@ -43,42 +44,64 @@ export async function runImageUpscale(args: {
           );
           const bytesIn = (await stat(item.inputPath)).size;
 
-          if (useAi) {
-            // Upscale to PNG (Real-ESRGAN's lossless target), then transcode if needed
-            const tmpPng =
-              ext === 'png' ? outPath : outPath.replace(/\.\w+$/, '.tmp.png');
-            onProgress({ jobId, itemId: item.id, pct: 1, stage: 'AI upscaling' });
-            await runUpscale({
-              inputPath: item.inputPath,
-              outputPath: tmpPng,
-              scale: options.scale,
-              model: options.model,
-              onProgress: (pct) =>
-                onProgress({
-                  jobId,
-                  itemId: item.id,
-                  pct: Math.max(1, Math.min(99, pct)),
-                  stage: 'AI upscaling',
-                }),
-              signal,
-            });
-            if (ext !== 'png') {
-              onProgress({ jobId, itemId: item.id, pct: 95, stage: 'Encoding' });
-              await transcode(tmpPng, outPath, ext);
-              await (await import('node:fs/promises')).rm(tmpPng, { force: true });
+          // Real-ESRGAN ncnn-vulkan uses stb_image and can't decode HEIC. If the
+          // input is HEIC, we decode it once via heic-convert and feed the
+          // intermediate PNG to whichever path runs.
+          let workingInput = item.inputPath;
+          let cleanupPng: string | null = null;
+          if (isHeic(item.inputPath)) {
+            onProgress({ jobId, itemId: item.id, pct: 1, stage: 'Decoding HEIC' });
+            const tmp = path.join(
+              options.outputDir,
+              `${path.parse(item.inputPath).name}.heic-decode.tmp.png`,
+            );
+            await (await openImage(item.inputPath))
+              .png({ compressionLevel: 1 })
+              .toFile(tmp);
+            workingInput = tmp;
+            cleanupPng = tmp;
+          }
+
+          try {
+            if (useAi) {
+              const tmpPng =
+                ext === 'png' ? outPath : outPath.replace(/\.\w+$/, '.tmp.png');
+              onProgress({ jobId, itemId: item.id, pct: 3, stage: 'AI upscaling' });
+              await runUpscale({
+                inputPath: workingInput,
+                outputPath: tmpPng,
+                scale: options.scale,
+                model: options.model,
+                onProgress: (pct) =>
+                  onProgress({
+                    jobId,
+                    itemId: item.id,
+                    pct: Math.max(3, Math.min(99, pct)),
+                    stage: 'AI upscaling',
+                  }),
+                signal,
+              });
+              if (ext !== 'png') {
+                onProgress({ jobId, itemId: item.id, pct: 95, stage: 'Encoding' });
+                await transcode(tmpPng, outPath, ext);
+                await (await import('node:fs/promises')).rm(tmpPng, { force: true });
+              }
+            } else {
+              onProgress({ jobId, itemId: item.id, pct: 5, stage: 'Lanczos resize' });
+              const img = sharp(workingInput, { failOn: 'none' });
+              const meta = await img.metadata();
+              const w = (meta.width ?? 0) * options.scale;
+              const pipeline = img.resize({
+                width: w,
+                kernel: 'lanczos3',
+                withoutEnlargement: false,
+              });
+              await applyEncoder(pipeline, ext).toFile(outPath);
             }
-          } else {
-            // High-quality Lanczos fallback via sharp
-            onProgress({ jobId, itemId: item.id, pct: 5, stage: 'Lanczos resize' });
-            const img = sharp(item.inputPath, { failOn: 'none' });
-            const meta = await img.metadata();
-            const w = (meta.width ?? 0) * options.scale;
-            const pipeline = img.resize({
-              width: w,
-              kernel: 'lanczos3',
-              withoutEnlargement: false,
-            });
-            await applyEncoder(pipeline, ext).toFile(outPath);
+          } finally {
+            if (cleanupPng) {
+              await (await import('node:fs/promises')).rm(cleanupPng, { force: true });
+            }
           }
 
           const bytesOut = (await stat(outPath)).size;

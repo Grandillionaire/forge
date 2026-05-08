@@ -31,6 +31,17 @@ export interface VideoUpscaleOptions {
   outputDir: string;
 }
 
+export type VideoResolutionPreset = 'preserve' | '1080p' | '720p' | '480p' | '360p';
+export type VideoAudioBitrate = '64k' | '128k' | '192k' | '256k' | 'preserve';
+
+export interface VideoCompressOptions {
+  resolution: VideoResolutionPreset;
+  crf: number;              // 18-32 typical for compression; higher = smaller
+  preset: 'ultrafast' | 'fast' | 'medium' | 'slow';
+  audioBitrate: VideoAudioBitrate;
+  outputDir: string;
+}
+
 export interface JobItem {
   id: string;
   inputPath: string;
@@ -88,6 +99,8 @@ const api = {
     ipcRenderer.invoke('job:imageCompress', items, options) as Promise<JobResult>,
   videoUpscale: (items: JobItem[], options: VideoUpscaleOptions) =>
     ipcRenderer.invoke('job:videoUpscale', items, options) as Promise<JobResult>,
+  videoCompress: (items: JobItem[], options: VideoCompressOptions) =>
+    ipcRenderer.invoke('job:videoCompress', items, options) as Promise<JobResult>,
   cancelJob: (jobId: string) =>
     ipcRenderer.invoke('job:cancel', jobId) as Promise<void>,
   onProgress: (cb: (e: ProgressEvent) => void) => {

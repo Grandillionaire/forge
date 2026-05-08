@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Sparkles, Minimize2, Wand2, Zap, X, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Sparkles, Minimize2, Wand2, FileVideo2, Zap, X, ArrowRight, ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Wordmark } from './Wordmark';
 
 const STORAGE_KEY = 'forge.onboarding.completedAt';
 // Bump when the wizard content changes meaningfully so existing users see it again.
-const VERSION = 1;
+// v2: added Video compress step + HEIC support note.
+const VERSION = 2;
 
 interface Props {
   forceOpen: boolean;
@@ -31,13 +32,13 @@ const STEPS: Step[] = [
     title: 'Welcome to Forge',
     tagline: 'Bulk media, locally',
     body:
-      'Forge processes images and videos in bulk — entirely on your machine, on your GPU. Drop files, pick options, click go. Three tools, all in one place.',
+      'Forge processes images and videos in bulk — entirely on your machine, on your GPU. Drop files, pick options, click go. Four tools in one app.',
     showWordmark: true,
   },
   {
     id: 'image-upscale',
     title: 'Image upscale',
-    tagline: 'Step 1 of 3',
+    tagline: 'Tool 1 of 4',
     icon: Sparkles,
     body:
       'Make images bigger and sharper. Pick a scale (2×, 3×, 4×) and a model that matches your content.',
@@ -45,28 +46,30 @@ const STEPS: Step[] = [
       'Photographic, illustration, or line-art models — pick the closest match',
       'AI engine: Real-ESRGAN — downloads ~50 MB on first use, runs on your GPU',
       'No AI engine? Falls back to a high-quality Lanczos resize — still good',
+      'Drops iPhone HEIC files? Forge decodes them automatically',
     ],
     best: 'Best for: low-resolution photos, screenshots, art that needs to print larger.',
   },
   {
     id: 'compress',
-    title: 'Compress + metadata',
-    tagline: 'Step 2 of 3',
+    title: 'Image compress',
+    tagline: 'Tool 2 of 4',
     icon: Minimize2,
     body:
-      'Shrink files for the web or social. Convert formats. Strip or rewrite EXIF metadata across the whole batch.',
+      'Shrink images for the web or social. Convert formats. Strip or rewrite EXIF metadata across the whole batch.',
     bullets: [
       'JPEG / WebP / AVIF — pick a quality, get smaller files',
+      'Convert iPhone HEIC → JPEG so anyone can open them',
       'Strip everything (EXIF, GPS, ICC profiles) — useful before posting publicly',
       'Or keep & rewrite Artist / Copyright / Description across the whole batch',
       'Optional resize before encode — cap the longest edge at any pixel width',
     ],
-    best: 'Best for: prepping images before upload, removing GPS data, batch-stamping copyright.',
+    best: 'Best for: prepping images before upload, converting iPhone photos, removing GPS data.',
   },
   {
-    id: 'video',
+    id: 'video-upscale',
     title: 'Video upscale',
-    tagline: 'Step 3 of 3',
+    tagline: 'Tool 3 of 4',
     icon: Wand2,
     body:
       'AI-upscale videos frame by frame. Audio is preserved. Outputs a clean H.264 MP4 with faststart.',
@@ -77,6 +80,21 @@ const STEPS: Step[] = [
       'Tune CRF (quality vs size) and encoder preset (speed vs efficiency)',
     ],
     best: 'Best for: enhancing low-res clips, prepping legacy footage for modern displays.',
+  },
+  {
+    id: 'video-compress',
+    title: 'Video compress',
+    tagline: 'Tool 4 of 4',
+    icon: FileVideo2,
+    body:
+      'Shrink videos in bulk — downscale resolution, drop bitrate, keep audio. No AI here, just a fast single-pass FFmpeg encode.',
+    bullets: [
+      'Resolution presets: 1080p / 720p / 480p / 360p — never upscales, only down',
+      'CRF slider for quality vs size — 18 visually lossless, 28 small, 32 tiny',
+      'Audio: pick a target bitrate or copy the source as-is',
+      'Order of magnitude faster than the upscale path',
+    ],
+    best: 'Best for: shrinking 4K → 1080p, prepping clips for upload limits, archiving footage.',
   },
   {
     id: 'tips',
