@@ -66,19 +66,40 @@ export async function runImageUpscale(args: {
             if (useAi) {
               const tmpPng =
                 ext === 'png' ? outPath : outPath.replace(/\.\w+$/, '.tmp.png');
-              onProgress({ jobId, itemId: item.id, pct: 3, stage: 'AI upscaling' });
+              onProgress({
+                jobId,
+                itemId: item.id,
+                pct: 3,
+                stage: 'Initializing GPU',
+              });
+              let lastLog: string | undefined;
+              let currentPct = 3;
               await runUpscale({
                 inputPath: workingInput,
                 outputPath: tmpPng,
                 scale: options.scale,
                 model: options.model,
-                onProgress: (pct) =>
+                onProgress: (pct) => {
+                  currentPct = Math.max(3, Math.min(99, pct));
                   onProgress({
                     jobId,
                     itemId: item.id,
-                    pct: Math.max(3, Math.min(99, pct)),
+                    pct: currentPct,
                     stage: 'AI upscaling',
-                  }),
+                    log: lastLog,
+                  });
+                },
+                onLog: (line) => {
+                  lastLog = line;
+                  // Forward the line without regressing the bar
+                  onProgress({
+                    jobId,
+                    itemId: item.id,
+                    pct: currentPct,
+                    stage: 'AI upscaling',
+                    log: line,
+                  });
+                },
                 signal,
               });
               if (ext !== 'png') {

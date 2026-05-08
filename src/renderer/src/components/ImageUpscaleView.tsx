@@ -33,7 +33,7 @@ export function ImageUpscaleView({
   const start = async () => {
     if (q.items.length === 0 || !outputDir) return;
     q.setRows((rs) =>
-      rs.map((r) => ({ ...r, pct: 0, stage: 'Queued', error: undefined, outputPath: undefined })),
+      rs.map((r) => ({ ...r, pct: 0, stage: 'Queued', error: undefined, outputPath: undefined, log: undefined, startedAt: undefined, outBytes: undefined })),
     );
     q.setRunning('running');
     const result = await window.forge.imageUpscale(q.items, {

@@ -53,6 +53,10 @@ export interface ProgressEvent {
   pct: number;          // 0-100
   stage: string;
   outputPath?: string;
+  // Most recent informative line from the underlying binary (ncnn-vulkan,
+  // ffmpeg). Surfacing this in the UI gives users continuous feedback even
+  // when the percentage hasn't moved (e.g., GPU init, single huge tile).
+  log?: string;
 }
 
 export interface JobResultItem {

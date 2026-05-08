@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ExternalLink, X, Image as ImageIcon, Film } from 'lucide-react';
+import { ExternalLink, X, Image as ImageIcon, Film, Loader2, Activity } from 'lucide-react';
 import clsx from 'clsx';
 import { basename, bytes, duration } from '../lib/format';
 
@@ -16,6 +17,13 @@ export interface FileRow {
   outputPath?: string;
   outBytes?: number;
   error?: string;
+  // Latest informational line from the binary backing this job (ncnn, ffmpeg).
+  // Surfaced as small text under the stage so progress is visible even between
+  // percentage ticks (e.g., during GPU init).
+  log?: string;
+  // Wall-clock timestamp (ms) of when work started — used to render a live
+  // elapsed-time counter while the row is active.
+  startedAt?: number;
 }
 
 interface Props {
@@ -99,7 +107,7 @@ function Row({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: 12 }}
       transition={{ duration: 0.18, delay: Math.min(index * 0.018, 0.15) }}
-      className="group relative flex items-center gap-3 px-5 py-3 border-b border-white/[0.04] last:border-b-0 hover:bg-white/[0.015] transition-colors"
+      className="group relative flex items-start gap-3 px-5 py-3 border-b border-white/[0.04] last:border-b-0 hover:bg-white/[0.015] transition-colors"
     >
       <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-black/60 border border-white/[0.06] shrink-0">
         {row.thumbnail ? (
@@ -118,7 +126,7 @@ function Row({
           </span>
           <StatusPill row={row} />
         </div>
-        <div className="text-[11px] text-forge-text/45 flex gap-2.5 mt-0.5 tabular-nums">
+        <div className="text-[11px] text-forge-text/45 flex gap-2.5 mt-0.5 tabular-nums flex-wrap">
           {row.width && row.height && (
             <span>{row.width}×{row.height}</span>
           )}
@@ -129,6 +137,7 @@ function Row({
           {row.outBytes !== undefined && (
             <span className="text-forge-primary font-bold">→ {bytes(row.outBytes)}</span>
           )}
+          {active && row.startedAt !== undefined && <Elapsed since={row.startedAt} />}
         </div>
         {row.pct !== undefined && (
           <div className="progress-track mt-2">
@@ -138,18 +147,45 @@ function Row({
                 done && 'progress-fill-done',
                 failed && 'progress-fill-fail',
               )}
-              style={{ width: `${row.pct}%` }}
+              style={{ width: `${Math.max(row.pct, 1)}%` }}
             />
           </div>
         )}
+
+        {/* Stage line — what step we're on, or the error if failed */}
         {(row.stage || row.error) && (
-          <div className={clsx('text-[10px] mt-1', failed ? 'text-rose-300' : active ? 'text-forge-primaryHi' : 'text-forge-text/45')}>
-            {row.error ?? row.stage}
+          <div
+            className={clsx(
+              'flex items-center gap-1.5 mt-1.5 text-[10.5px]',
+              failed ? 'text-rose-300' : active ? 'text-forge-primaryHi' : 'text-forge-text/55',
+            )}
+          >
+            {active && <Loader2 className="w-3 h-3 animate-spin shrink-0" />}
+            {failed && <X className="w-3 h-3 shrink-0" />}
+            <span className="font-semibold">{row.error ? 'Failed' : row.stage}</span>
+            {!failed && row.pct !== undefined && active && (
+              <span className="text-forge-text/45 tabular-nums">· {row.pct.toFixed(0)}%</span>
+            )}
+          </div>
+        )}
+
+        {/* Live log line — what the underlying binary is currently doing */}
+        {active && row.log && (
+          <div className="flex items-center gap-1.5 mt-1 text-[10px] text-forge-text/40 font-mono">
+            <Activity className="w-2.5 h-2.5 shrink-0" />
+            <span className="truncate">{row.log}</span>
+          </div>
+        )}
+
+        {/* Error detail block — wraps so users can read the whole message */}
+        {failed && (
+          <div className="text-[10.5px] text-rose-300/80 mt-1.5 leading-relaxed bg-rose-500/[0.06] border border-rose-400/15 rounded p-2 whitespace-pre-wrap break-words">
+            {row.error}
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
         {row.outputPath && (
           <button
             className="btn-icon"
@@ -164,6 +200,26 @@ function Row({
         </button>
       </div>
     </motion.div>
+  );
+}
+
+/**
+ * Live elapsed-time counter, updates once per second. Only mounted while the
+ * row is active so we don't have a permanent timer per row.
+ */
+function Elapsed({ since }: { since: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const sec = Math.max(0, Math.floor((now - since) / 1000));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return (
+    <span className="text-forge-primaryHi/70">
+      {m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`}
+    </span>
   );
 }
 

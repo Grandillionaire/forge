@@ -139,13 +139,25 @@ function unzipMac(zip: string, dest: string): Promise<void> {
   });
 }
 
-/** Run the ncnn-vulkan binary on a single image. */
+/**
+ * Run the ncnn-vulkan binary on a single image.
+ *
+ * Progress: ncnn streams "0.50%" / "12.50%" lines to stderr. We extract the
+ * LAST percentage in each chunk (multi-line chunks are common when the binary
+ * produces ticks faster than Node reads the pipe).
+ *
+ * Logs: the full stderr tail is buffered (last 8 KB) so we can surface a
+ * meaningful error message if the process exits non-zero, and we also pass the
+ * most recent meaningful line (init / progress / status) up through onLog so
+ * the UI can show users what the binary is currently doing.
+ */
 export function runUpscale(args: {
   inputPath: string;
   outputPath: string;
   scale: 2 | 3 | 4;
-  model: string;          // realesrgan-x4plus | realesrgan-x4plus-anime | realesr-animevideov3
+  model: string;
   onProgress?: (pct: number) => void;
+  onLog?: (line: string) => void;
   signal?: AbortSignal;
 }): Promise<void> {
   const bin = realesrganBinaryPath();
@@ -166,17 +178,50 @@ export function runUpscale(args: {
       ],
       { stdio: ['ignore', 'pipe', 'pipe'] },
     );
+
+    let killed = false;
     if (args.signal) {
-      args.signal.addEventListener('abort', () => proc.kill('SIGTERM'), { once: true });
+      args.signal.addEventListener(
+        'abort',
+        () => { killed = true; proc.kill('SIGTERM'); },
+        { once: true },
+      );
     }
+
+    // Cap stderr buffer at 8KB. Enough for diagnostics, nowhere near memory growth.
+    let stderrTail = '';
+    const PCT_RE = /([\d.]+)%/g;
+
     proc.stderr.on('data', (chunk: Buffer) => {
-      // ncnn prints "0.50%" / "12.50%" / etc on stderr
-      const m = /([\d.]+)%/.exec(chunk.toString());
-      if (m && args.onProgress) args.onProgress(Math.min(99, Number(m[1])));
+      const text = chunk.toString();
+      stderrTail = (stderrTail + text).slice(-8192);
+
+      // Capture every match in this chunk; the last one is the freshest %.
+      const matches = [...text.matchAll(PCT_RE)];
+      if (matches.length && args.onProgress) {
+        const pct = Number(matches[matches.length - 1][1]);
+        if (!Number.isNaN(pct)) args.onProgress(Math.min(99, pct));
+      }
+
+      // Surface the most recent non-empty informational line. Skip the
+      // percentage-only lines because they're already reflected in the bar.
+      if (args.onLog) {
+        const lines = text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+        for (const line of lines.reverse()) {
+          if (!/^[\d.]+%$/.test(line)) {
+            args.onLog(line.slice(0, 200));
+            break;
+          }
+        }
+      }
     });
-    proc.on('error', reject);
-    proc.on('close', (code) =>
-      code === 0 ? resolve() : reject(new Error(`real-esrgan exit ${code}`)),
-    );
+
+    proc.on('error', (err) => reject(killed ? new Error('cancelled') : err));
+    proc.on('close', (code) => {
+      if (killed) return reject(new Error('cancelled'));
+      if (code === 0) return resolve();
+      const tailLines = stderrTail.split(/\r?\n/).filter((l) => l.trim()).slice(-3).join(' · ');
+      reject(new Error(`Real-ESRGAN exit ${code}${tailLines ? ` — ${tailLines}` : ''}`));
+    });
   });
 }

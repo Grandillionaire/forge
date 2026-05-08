@@ -13,16 +13,22 @@ export function useFileQueue(kind: 'image' | 'video') {
   useEffect(() => {
     const off = window.forge.onProgress((e: ProgressEvent) => {
       setRows((rs) =>
-        rs.map((r) =>
-          r.id === e.itemId
-            ? {
-                ...r,
-                pct: e.pct,
-                stage: e.stage,
-                outputPath: e.outputPath ?? r.outputPath,
-              }
-            : r,
-        ),
+        rs.map((r) => {
+          if (r.id !== e.itemId) return r;
+          return {
+            ...r,
+            // Don't allow progress to regress while a job is in flight; log-only
+            // updates from the underlying binary share the current pct.
+            pct: typeof e.pct === 'number' ? Math.max(r.pct ?? 0, e.pct) : r.pct,
+            stage: e.stage ?? r.stage,
+            log: e.log !== undefined ? e.log : r.log,
+            outputPath: e.outputPath ?? r.outputPath,
+            // Stamp startedAt the first time we see motion (pct > 0 and not yet set).
+            startedAt:
+              r.startedAt ??
+              (typeof e.pct === 'number' && e.pct > 0 ? Date.now() : undefined),
+          };
+        }),
       );
     });
     return () => {
