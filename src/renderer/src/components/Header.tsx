@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Cpu, Zap } from 'lucide-react';
+import { Cpu, HelpCircle, Zap } from 'lucide-react';
 import { Wordmark } from './Wordmark';
 import { StatusDot } from './ui/StatusDot';
 import { GithubMark } from './icons/GithubMark';
@@ -7,6 +7,7 @@ import { GithubMark } from './icons/GithubMark';
 interface Props {
   aiAvailable: boolean;
   installing: boolean;
+  onShowTour: () => void;
 }
 
 const REPO_URL = 'https://github.com/Grandillionaire/forge';
@@ -16,7 +17,7 @@ const REPO_URL = 'https://github.com/Grandillionaire/forge';
  * so users can move the window from any blank area; interactive elements get
  * `WebkitAppRegion: 'no-drag'` to remain clickable.
  */
-export function Header({ aiAvailable, installing }: Props) {
+export function Header({ aiAvailable, installing, onShowTour }: Props) {
   const [diag, setDiag] = useState<{ cpuCount: number; arch: string } | null>(null);
 
   useEffect(() => {
@@ -43,7 +44,15 @@ export function Header({ aiAvailable, installing }: Props) {
         <span className="hidden sm:inline text-[12px] text-forge-mute leading-relaxed">
           Bulk media tooling — upscale, compress, transform.
         </span>
-        <div className="ml-auto flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <div className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <button
+            onClick={onShowTour}
+            className="btn-icon"
+            title="Show tour"
+            aria-label="Show product tour"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
           <a
             href={REPO_URL}
             target="_blank"

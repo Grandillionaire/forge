@@ -7,6 +7,7 @@ import { ImageUpscaleView } from './components/ImageUpscaleView';
 import { ImageCompressView } from './components/ImageCompressView';
 import { VideoUpscaleView } from './components/VideoUpscaleView';
 import { DragOverlay } from './components/DragOverlay';
+import { OnboardingWizard } from './components/OnboardingWizard';
 
 type Tab = 'image-upscale' | 'image-compress' | 'video-upscale';
 
@@ -21,6 +22,9 @@ export default function App() {
   const [ai, setAi] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [installStage, setInstallStage] = useState('');
+  // Onboarding wizard. Shows automatically on first launch (decides via localStorage).
+  // Setting forceOpen = true via the (?) icon in the Header re-opens it on demand.
+  const [tourForceOpen, setTourForceOpen] = useState(false);
 
   useEffect(() => {
     window.forge.diagnostics().then((d) => setAi(d.realesrganAvailable));
@@ -48,7 +52,15 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <DragOverlay />
-      <Header aiAvailable={ai} installing={installing} />
+      <OnboardingWizard
+        forceOpen={tourForceOpen}
+        onClose={() => setTourForceOpen(false)}
+      />
+      <Header
+        aiAvailable={ai}
+        installing={installing}
+        onShowTour={() => setTourForceOpen(true)}
+      />
 
       <nav className="px-4 sm:px-6 mt-2">
         <div className="max-w-6xl mx-auto flex items-center gap-1 glass-deep rounded-xl p-1">
