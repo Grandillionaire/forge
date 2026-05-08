@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, Cpu, HelpCircle, Zap } from 'lucide-react';
+import { BookOpen, Bot, Cpu, HelpCircle, Zap } from 'lucide-react';
 import { Wordmark } from './Wordmark';
 import { StatusDot } from './ui/StatusDot';
 import { GithubMark } from './icons/GithubMark';
@@ -9,6 +9,7 @@ interface Props {
   installing: boolean;
   onShowTour: () => void;
   onShowManual: () => void;
+  onShowAssistant: () => void;
 }
 
 const REPO_URL = 'https://github.com/Grandillionaire/forge';
@@ -18,7 +19,13 @@ const REPO_URL = 'https://github.com/Grandillionaire/forge';
  * so users can move the window from any blank area; interactive elements get
  * `WebkitAppRegion: 'no-drag'` to remain clickable.
  */
-export function Header({ aiAvailable, installing, onShowTour, onShowManual }: Props) {
+export function Header({
+  aiAvailable,
+  installing,
+  onShowTour,
+  onShowManual,
+  onShowAssistant,
+}: Props) {
   const [diag, setDiag] = useState<{ cpuCount: number; arch: string } | null>(null);
 
   useEffect(() => {
@@ -46,6 +53,14 @@ export function Header({ aiAvailable, installing, onShowTour, onShowManual }: Pr
           Bulk media tooling — upscale, compress, transform.
         </span>
         <div className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <button
+            onClick={onShowAssistant}
+            className="btn-icon"
+            title="AI assistant"
+            aria-label="Open AI assistant"
+          >
+            <Bot className="w-4 h-4" />
+          </button>
           <button
             onClick={onShowManual}
             className="btn-icon"

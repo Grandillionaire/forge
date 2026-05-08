@@ -10,6 +10,7 @@ import { VideoCompressView } from './components/VideoCompressView';
 import { DragOverlay } from './components/DragOverlay';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { ManualModal } from './components/ManualModal';
+import { AssistantPanel } from './components/AssistantPanel';
 
 type Tab = 'image-upscale' | 'image-compress' | 'video-upscale' | 'video-compress';
 
@@ -30,6 +31,8 @@ export default function App() {
   const [tourForceOpen, setTourForceOpen] = useState(false);
   // Manual modal — opened by the book icon in the Header.
   const [manualOpen, setManualOpen] = useState(false);
+  // AI Assistant — slide-in panel from the right. BYO OpenAI key.
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   useEffect(() => {
     window.forge.diagnostics().then((d) => setAi(d.realesrganAvailable));
@@ -60,13 +63,20 @@ export default function App() {
       <OnboardingWizard
         forceOpen={tourForceOpen}
         onClose={() => setTourForceOpen(false)}
+        onPickTool={(t) => setTab(t)}
       />
       <ManualModal open={manualOpen} onClose={() => setManualOpen(false)} />
+      <AssistantPanel
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        currentTab={TABS.find((t) => t.id === tab)?.label}
+      />
       <Header
         aiAvailable={ai}
         installing={installing}
         onShowTour={() => setTourForceOpen(true)}
         onShowManual={() => setManualOpen(true)}
+        onShowAssistant={() => setAssistantOpen(true)}
       />
 
       <nav className="px-4 sm:px-6 mt-2">

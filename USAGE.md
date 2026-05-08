@@ -258,9 +258,35 @@ While a batch is running, the **Cancel** button stops the current job cleanly. F
 
 Forge checks GitHub Releases on every launch. When a newer version is available, it downloads in the background and prompts you to restart on next quit. No manual re-downloading needed.
 
-### The (?) tour button
+### The help triplet (top-right)
 
-Top-right of the window. Re-opens the onboarding wizard at any time — useful when a teammate joins and wants the tour.
+Three icons in the header, always there:
+
+| Icon | Opens |
+|---|---|
+| 🤖 (Bot) | **AI Assistant** — chat panel that knows Forge inside out. Bring your own OpenAI API key. |
+| 📖 (BookOpen) | **Manual** — this document, rendered in-app. |
+| ❓ (HelpCircle) | **Tour** — re-opens the interactive onboarding wizard. |
+
+### AI Assistant — bring your own key
+
+Click the 🤖 icon. The panel slides in from the right.
+
+**How it works:**
+1. First-launch: paste your **OpenAI API key** in the field. It's stored only on your device, in localStorage.
+2. Pick a model — `gpt-4o-mini` is the cheap, fast default; `gpt-4o` is smarter but ~10× more expensive.
+3. Type a question. Hit Enter. Tokens stream in as the assistant responds.
+
+**What the assistant knows:**
+The system prompt embeds this entire manual plus the current tab you're on. So if you're in Image compress and ask "what should I pick?", it answers in that context.
+
+**What you should know:**
+- The assistant **sends your messages to OpenAI's servers** — not Forge's. This is the only feature that contacts a third party. Forge has no servers.
+- OpenAI bills your account directly. A typical question costs ~$0.0001 with `gpt-4o-mini`.
+- The key is stored unencrypted in the renderer's localStorage. If your machine is compromised, the key is too — same as any browser tool that stores keys.
+- Get a key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
+
+**Privacy note:** every other Forge feature stays 100% local. The assistant is the lone exception, and it's opt-in by design.
 
 ---
 
