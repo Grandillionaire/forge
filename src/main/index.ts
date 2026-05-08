@@ -5,18 +5,20 @@ import os from 'node:os';
 import { stat } from 'node:fs/promises';
 import sharp from 'sharp';
 import log from 'electron-log/main';
-import { ffmpegPath, probeVideo } from './ffmpeg';
+import { ffmpegPath, probeAudio, probeVideo } from './ffmpeg';
 import { defaultOutputDir, ensureDir } from './paths';
 import * as realesrgan from './realesrgan';
 import { runImageUpscale } from './jobs/imageUpscale';
 import { runImageCompress } from './jobs/imageCompress';
 import { runVideoUpscale } from './jobs/videoUpscale';
 import { runVideoCompress } from './jobs/videoCompress';
+import { runAudioConvert } from './jobs/audioConvert';
 import { openImage } from './imageDecode';
 
 log.transports.file.level = 'info';
 import { setupAutoUpdater } from './updater';
 import type {
+  AudioConvertOptions,
   ImageCompressOptions,
   ImageUpscaleOptions,
   JobItem,
@@ -25,9 +27,13 @@ import type {
   VideoUpscaleOptions,
 } from '../preload/index';
 
-const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp', 'tiff', 'tif', 'bmp', 'avif', 'heic'] as const;
+const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp', 'tiff', 'tif', 'bmp', 'avif', 'heic', 'heif'] as const;
 const VIDEO_EXT = ['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v'] as const;
-const ALL_EXT = new Set<string>([...IMAGE_EXT, ...VIDEO_EXT]);
+const AUDIO_EXT = [
+  'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg', 'opus',
+  'wma', 'amr', 'aiff', 'aif', 'mp2', 'mka', 'm4b',
+] as const;
+const ALL_EXT = new Set<string>([...IMAGE_EXT, ...VIDEO_EXT, ...AUDIO_EXT]);
 
 const jobControllers = new Map<string, AbortController>();
 
@@ -120,13 +126,17 @@ app.on('window-all-closed', () => {
 
 function registerIpc(): void {
   ipcMain.handle('dialog:pickFiles', async (_e, kind: unknown) => {
-    const k = kind === 'image' || kind === 'video' ? kind : 'image';
+    const k =
+      kind === 'image' || kind === 'video' || kind === 'audio' ? kind : 'image';
     const filters =
       k === 'image'
         ? [{ name: 'Images', extensions: [...IMAGE_EXT] }]
-        : [{ name: 'Videos', extensions: [...VIDEO_EXT] }];
+        : k === 'video'
+        ? [{ name: 'Videos', extensions: [...VIDEO_EXT] }]
+        : [{ name: 'Audio', extensions: [...AUDIO_EXT] }];
+    const titleByKind = { image: 'Select images', video: 'Select videos', audio: 'Select audio files' };
     const r = await dialog.showOpenDialog({
-      title: k === 'image' ? 'Select images' : 'Select videos',
+      title: titleByKind[k],
       properties: ['openFile', 'multiSelections'],
       filters,
     });
@@ -209,6 +219,17 @@ function registerIpc(): void {
             const v = await probeVideo(p);
             return { path: p, ok: true, width: v.width, height: v.height, bytes: sz, durationSec: v.durationSec };
           }
+          if ((AUDIO_EXT as readonly string[]).includes(ext)) {
+            // ffprobe also handles pure-audio files; probeVideo() throws when
+            // it can't find a video stream, so use a slimmer probe directly.
+            const probe = await probeAudio(p).catch(() => null);
+            return {
+              path: p,
+              ok: true,
+              bytes: sz,
+              durationSec: probe?.durationSec,
+            };
+          }
           return { path: p, ok: false };
         } catch {
           return { path: p, ok: false };
@@ -261,6 +282,9 @@ function registerIpc(): void {
   );
   ipcMain.handle('job:videoCompress', (e, items, options) =>
     runJobHandler('videoCompress', e, items, options, isVideoCompressOptions, runVideoCompress),
+  );
+  ipcMain.handle('job:audioConvert', (e, items, options) =>
+    runJobHandler('audioConvert', e, items, options, isAudioConvertOptions, runAudioConvert),
   );
 }
 
@@ -400,6 +424,15 @@ function isVideoCompressOptions(o: unknown): o is VideoCompressOptions {
     && isString(v.preset)
     && isString(v.audioBitrate)
     && isString(v.outputDir);
+}
+function isAudioConvertOptions(o: unknown): o is AudioConvertOptions {
+  if (typeof o !== 'object' || o === null) return false;
+  const a = o as AudioConvertOptions;
+  return isString(a.format)
+    && isString(a.bitrate)
+    && isString(a.sampleRate)
+    && isString(a.channels)
+    && isString(a.outputDir);
 }
 
 async function runWithController<O>(

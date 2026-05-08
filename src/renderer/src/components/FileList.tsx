@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ExternalLink, X, Image as ImageIcon, Film, Loader2, Activity } from 'lucide-react';
+import { ExternalLink, X, Image as ImageIcon, Film, Loader2, Activity, AudioLines } from 'lucide-react';
 import clsx from 'clsx';
 import { basename, bytes, duration } from '../lib/format';
 
@@ -30,7 +30,7 @@ interface Props {
   rows: FileRow[];
   onRemove: (id: string) => void;
   onClear: () => void;
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'audio';
 }
 
 export function FileList({ rows, onRemove, onClear, kind }: Props) {
@@ -49,7 +49,7 @@ export function FileList({ rows, onRemove, onClear, kind }: Props) {
           </div>
           <div className="flex items-center gap-2 text-[11px] text-forge-text/65">
             <span className="tabular-nums font-bold text-forge-text">{rows.length}</span>
-            <span>{kind === 'image' ? 'image' : 'video'}{rows.length === 1 ? '' : 's'}</span>
+            <span>{kind === 'image' ? 'image' : kind === 'video' ? 'video' : 'audio file'}{rows.length === 1 ? '' : 's'}</span>
             <span className="text-forge-text/30">·</span>
             <span className="tabular-nums">{bytes(totalBytes)}</span>
             {doneCount > 0 && (
@@ -93,12 +93,12 @@ function Row({
   row: FileRow;
   index: number;
   onRemove: () => void;
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'audio';
 }) {
   const done = row.pct === 100 && !row.error;
   const failed = !!row.error;
   const active = row.pct !== undefined && row.pct < 100 && !failed;
-  const Icon = kind === 'image' ? ImageIcon : Film;
+  const Icon = kind === 'image' ? ImageIcon : kind === 'video' ? Film : AudioLines;
 
   return (
     <motion.div
@@ -114,7 +114,7 @@ function Row({
           <img src={row.thumbnail} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Icon className="w-4 h-4 text-forge-text/30" />
+            <Icon className={`w-4 h-4 ${kind === 'audio' ? 'text-forge-primaryHi/60' : 'text-forge-text/30'}`} />
           </div>
         )}
       </div>
@@ -131,7 +131,7 @@ function Row({
             <span>{row.width}×{row.height}</span>
           )}
           <span>{bytes(row.bytes)}</span>
-          {kind === 'video' && row.durationSec !== undefined && (
+          {(kind === 'video' || kind === 'audio') && row.durationSec !== undefined && (
             <span>{duration(row.durationSec)}</span>
           )}
           {row.outBytes !== undefined && (
@@ -231,8 +231,8 @@ function StatusPill({ row }: { row: FileRow }) {
   return <span className="pill pill-mute">Ready</span>;
 }
 
-function EmptyState({ kind }: { kind: 'image' | 'video' }) {
-  const Icon = kind === 'image' ? ImageIcon : Film;
+function EmptyState({ kind }: { kind: 'image' | 'video' | 'audio' }) {
+  const Icon = kind === 'image' ? ImageIcon : kind === 'video' ? Film : AudioLines;
   return (
     <div className="glass rounded-2xl py-10 text-center">
       <div className="flex flex-col items-center gap-3">

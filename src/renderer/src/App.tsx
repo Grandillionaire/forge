@@ -1,24 +1,31 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Sparkles, Minimize2, Wand2, FileVideo2 } from 'lucide-react';
+import { Sparkles, Minimize2, Wand2, FileVideo2, AudioLines } from 'lucide-react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ImageUpscaleView } from './components/ImageUpscaleView';
 import { ImageCompressView } from './components/ImageCompressView';
 import { VideoUpscaleView } from './components/VideoUpscaleView';
 import { VideoCompressView } from './components/VideoCompressView';
+import { AudioConvertView } from './components/AudioConvertView';
 import { DragOverlay } from './components/DragOverlay';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { ManualModal } from './components/ManualModal';
 import { AssistantPanel } from './components/AssistantPanel';
 
-type Tab = 'image-upscale' | 'image-compress' | 'video-upscale' | 'video-compress';
+type Tab =
+  | 'image-upscale'
+  | 'image-compress'
+  | 'video-upscale'
+  | 'video-compress'
+  | 'audio-convert';
 
 const TABS: Array<{ id: Tab; label: string; shortLabel: string; icon: React.ReactNode }> = [
-  { id: 'image-upscale',  label: 'Image upscale',  shortLabel: 'Img upscale',  icon: <Sparkles className="w-3.5 h-3.5" /> },
-  { id: 'image-compress', label: 'Image compress', shortLabel: 'Img compress', icon: <Minimize2 className="w-3.5 h-3.5" /> },
-  { id: 'video-upscale',  label: 'Video upscale',  shortLabel: 'Vid upscale',  icon: <Wand2 className="w-3.5 h-3.5" /> },
-  { id: 'video-compress', label: 'Video compress', shortLabel: 'Vid compress', icon: <FileVideo2 className="w-3.5 h-3.5" /> },
+  { id: 'image-upscale',  label: 'Image upscale',  shortLabel: 'Img up',     icon: <Sparkles className="w-3.5 h-3.5" /> },
+  { id: 'image-compress', label: 'Image compress', shortLabel: 'Img compr',  icon: <Minimize2 className="w-3.5 h-3.5" /> },
+  { id: 'video-upscale',  label: 'Video upscale',  shortLabel: 'Vid up',     icon: <Wand2 className="w-3.5 h-3.5" /> },
+  { id: 'video-compress', label: 'Video compress', shortLabel: 'Vid compr',  icon: <FileVideo2 className="w-3.5 h-3.5" /> },
+  { id: 'audio-convert',  label: 'Audio convert',  shortLabel: 'Audio',      icon: <AudioLines className="w-3.5 h-3.5" /> },
 ];
 
 export default function App() {
@@ -121,6 +128,7 @@ export default function App() {
                 />
               )}
               {tab === 'video-compress' && <VideoCompressView />}
+              {tab === 'audio-convert' && <AudioConvertView />}
             </motion.div>
           </AnimatePresence>
         </div>

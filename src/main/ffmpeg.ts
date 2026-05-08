@@ -22,6 +22,36 @@ export interface ProbeResult {
   bitrate: number;
 }
 
+export interface AudioProbeResult {
+  durationSec: number;
+  bitrate: number;
+  sampleRate: number;
+  channels: number;
+  codec: string;
+}
+
+/**
+ * Light-weight audio probe — succeeds for any file with at least one audio
+ * stream. probeVideo() throws when there's no video stream, so audio-only
+ * files (mp3, wav, flac, ...) need their own path.
+ */
+export function probeAudio(path: string): Promise<AudioProbeResult> {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(path, (err, data) => {
+      if (err) return reject(err);
+      const a = data.streams.find((s) => s.codec_type === 'audio');
+      if (!a) return reject(new Error('No audio stream'));
+      resolve({
+        durationSec: Number(data.format.duration ?? 0),
+        bitrate: Number(data.format.bit_rate ?? a.bit_rate ?? 0),
+        sampleRate: Number(a.sample_rate ?? 0),
+        channels: a.channels ?? 0,
+        codec: a.codec_name ?? '',
+      });
+    });
+  });
+}
+
 export function probeVideo(path: string): Promise<ProbeResult> {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(path, (err, data) => {

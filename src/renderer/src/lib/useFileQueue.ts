@@ -5,7 +5,7 @@ import type { ProgressEvent } from '../../../preload/index';
 let _id = 0;
 const nextId = () => `f${++_id}`;
 
-export function useFileQueue(kind: 'image' | 'video') {
+export function useFileQueue(kind: 'image' | 'video' | 'audio') {
   const [rows, setRows] = useState<FileRow[]>([]);
   const [running, setRunning] = useState<string | null>(null); // jobId
 

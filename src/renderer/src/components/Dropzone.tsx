@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, ImagePlus, Film } from 'lucide-react';
+import { Upload, ImagePlus, Film, AudioLines } from 'lucide-react';
 
 interface Props {
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'audio';
   onFiles: (paths: string[]) => void;
   hint?: string;
   compact?: boolean;
@@ -31,7 +31,7 @@ export function Dropzone({ kind, onFiles, hint, compact }: Props) {
     if (paths.length) onFiles(paths);
   };
 
-  const Icon = kind === 'image' ? ImagePlus : Film;
+  const Icon = kind === 'image' ? ImagePlus : kind === 'video' ? Film : AudioLines;
 
   return (
     <motion.div
@@ -69,7 +69,7 @@ export function Dropzone({ kind, onFiles, hint, compact }: Props) {
         </div>
         <div className="space-y-1">
           <div className="text-[11px] uppercase tracking-wider3 text-forge-primary font-bold">
-            {kind === 'image' ? 'Drop images' : 'Drop videos'}
+            {kind === 'image' ? 'Drop images' : kind === 'video' ? 'Drop videos' : 'Drop audio'}
           </div>
           <div className="text-[13px] text-forge-text/65">
             {hint ?? 'or click to choose files. Bulk supported.'}

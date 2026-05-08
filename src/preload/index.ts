@@ -42,6 +42,20 @@ export interface VideoCompressOptions {
   outputDir: string;
 }
 
+export type AudioFormat = 'mp3' | 'm4a' | 'aac' | 'wav' | 'flac' | 'ogg' | 'opus';
+export type AudioBitrate =
+  | '64k' | '96k' | '128k' | '160k' | '192k' | '256k' | '320k' | 'preserve';
+export type AudioSampleRate = 'preserve' | '22050' | '44100' | '48000';
+export type AudioChannels = 'preserve' | 'mono' | 'stereo';
+
+export interface AudioConvertOptions {
+  format: AudioFormat;
+  bitrate: AudioBitrate;        // ignored for lossless formats (wav, flac)
+  sampleRate: AudioSampleRate;  // 'preserve' = match source
+  channels: AudioChannels;      // 'preserve' = match source
+  outputDir: string;
+}
+
 export interface JobItem {
   id: string;
   inputPath: string;
@@ -81,7 +95,7 @@ const api = {
    * removed File.path; webUtils.getPathForFile is the supported replacement.
    */
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
-  pickFiles: (kind: 'image' | 'video') =>
+  pickFiles: (kind: 'image' | 'video' | 'audio') =>
     ipcRenderer.invoke('dialog:pickFiles', kind) as Promise<string[]>,
   pickDirectory: () =>
     ipcRenderer.invoke('dialog:pickDirectory') as Promise<string | null>,
@@ -105,6 +119,8 @@ const api = {
     ipcRenderer.invoke('job:videoUpscale', items, options) as Promise<JobResult>,
   videoCompress: (items: JobItem[], options: VideoCompressOptions) =>
     ipcRenderer.invoke('job:videoCompress', items, options) as Promise<JobResult>,
+  audioConvert: (items: JobItem[], options: AudioConvertOptions) =>
+    ipcRenderer.invoke('job:audioConvert', items, options) as Promise<JobResult>,
   cancelJob: (jobId: string) =>
     ipcRenderer.invoke('job:cancel', jobId) as Promise<void>,
   onProgress: (cb: (e: ProgressEvent) => void) => {

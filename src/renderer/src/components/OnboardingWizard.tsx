@@ -5,6 +5,7 @@ import {
   Minimize2,
   Wand2,
   FileVideo2,
+  AudioLines,
   Upload,
   Check,
   X,
@@ -20,10 +21,15 @@ import { Button } from './ui/Button';
 import { Wordmark } from './Wordmark';
 
 const STORAGE_KEY = 'forge.onboarding.completedAt';
-// v3: interactive rewrite. Bumps so existing users see the new tour once.
-const VERSION = 3;
+// v4: added audio convert tool. Bumps so existing users re-see the tour.
+const VERSION = 4;
 
-type ToolId = 'image-upscale' | 'image-compress' | 'video-upscale' | 'video-compress';
+type ToolId =
+  | 'image-upscale'
+  | 'image-compress'
+  | 'video-upscale'
+  | 'video-compress'
+  | 'audio-convert';
 
 interface Props {
   forceOpen: boolean;
@@ -46,6 +52,7 @@ const TOOLS: ToolCard[] = [
   { id: 'image-compress', icon: Minimize2,  title: 'Image compress', desc: 'Shrink images, convert HEIC → JPEG, control metadata.' },
   { id: 'video-upscale',  icon: Wand2,      title: 'Video upscale',  desc: 'AI-upscale videos frame by frame. Heavy work.' },
   { id: 'video-compress', icon: FileVideo2, title: 'Video compress', desc: 'Shrink videos — downscale or just drop bitrate.' },
+  { id: 'audio-convert',  icon: AudioLines, title: 'Audio convert',  desc: 'MP3 ↔ WAV ↔ FLAC ↔ AAC ↔ Opus. Bitrate, sample rate.' },
 ];
 
 export function OnboardingWizard({ forceOpen, onClose, onPickTool }: Props) {
@@ -237,8 +244,8 @@ function StepWelcome({ onContinue }: { onContinue: () => void }) {
         Hi, this is Forge.
       </h2>
       <p className="text-[15px] text-forge-text/85 leading-relaxed max-w-md mb-5">
-        Forge processes images and videos in bulk — locally, on your computer.
-        It does four things and we'll show you each one in 60 seconds.
+        Forge processes images, videos, and audio in bulk — locally, on your computer.
+        It does five things and we'll show you each one in 60 seconds.
       </p>
       <button
         onClick={onContinue}
@@ -345,7 +352,7 @@ function StepTabsTour() {
         Step 3 of 5 · The four tabs
       </div>
       <h2 className="text-[20px] font-semibold tracking-tight text-forge-text mb-2">
-        Forge has four tools.
+        Forge has five tools.
       </h2>
       <p className="text-[14px] text-forge-text/80 leading-relaxed max-w-md mb-5">
         Each tool is a tab at the top of the window. They do related but different things.

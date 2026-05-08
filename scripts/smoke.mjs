@@ -490,6 +490,78 @@ async function step_video_compress() {
   if (!a) throw new Error('audio dropped');
 }
 
+async function step_audio() {
+  log('\n── Audio convert (FFmpeg) ──');
+  const ffmpeg = require_('ffmpeg-static');
+  const ffPath = typeof ffmpeg === 'string' ? ffmpeg : ffmpeg.default ?? ffmpeg;
+  const ffprobe = require_('@ffprobe-installer/ffprobe');
+  const ffprobePath = ffprobe.path;
+
+  // Synthesize a 5s WAV source (sine 440Hz) — works without any preexisting file
+  const wavSrc = path.join(IN_DIR, 'audio_source.wav');
+  if (!fs.existsSync(wavSrc)) {
+    const { execSync } = await import('node:child_process');
+    execSync(
+      `"${ffPath}" -y -f lavfi -i "sine=frequency=440:duration=5" -c:a pcm_s16le "${wavSrc}"`,
+      { stdio: 'pipe' },
+    );
+  }
+  const inSz = fs.statSync(wavSrc).size;
+  log(`  source: ${bytes(inSz)} 5s WAV (sine 440Hz)`);
+
+  const outDir = path.join(OUT_DIR, 'audio');
+  fs.mkdirSync(outDir, { recursive: true });
+
+  // 1) WAV → MP3 192k
+  const mp3Out = path.join(outDir, 'audio_source_converted.mp3');
+  await withTimer('WAV → MP3 192k', async () => {
+    const { execSync } = await import('node:child_process');
+    execSync(
+      `"${ffPath}" -y -i "${wavSrc}" -vn -c:a libmp3lame -b:a 192k "${mp3Out}"`,
+      { stdio: 'pipe' },
+    );
+    const probe = JSON.parse(
+      execSync(`"${ffprobePath}" -v error -print_format json -show_streams "${mp3Out}"`).toString(),
+    );
+    const a = probe.streams.find((s) => s.codec_type === 'audio');
+    if (a?.codec_name !== 'mp3') throw new Error(`expected mp3 codec, got ${a?.codec_name}`);
+    log(`  output: ${bytes(fs.statSync(mp3Out).size)} mp3 ${a.sample_rate}Hz ${a.channels}ch`);
+  });
+
+  // 2) WAV → FLAC (lossless)
+  const flacOut = path.join(outDir, 'audio_source_converted.flac');
+  await withTimer('WAV → FLAC', async () => {
+    const { execSync } = await import('node:child_process');
+    execSync(
+      `"${ffPath}" -y -i "${wavSrc}" -vn -c:a flac "${flacOut}"`,
+      { stdio: 'pipe' },
+    );
+    const probe = JSON.parse(
+      execSync(`"${ffprobePath}" -v error -print_format json -show_streams "${flacOut}"`).toString(),
+    );
+    const a = probe.streams.find((s) => s.codec_type === 'audio');
+    if (a?.codec_name !== 'flac') throw new Error(`expected flac codec, got ${a?.codec_name}`);
+    log(`  output: ${bytes(fs.statSync(flacOut).size)} flac ${a.sample_rate}Hz ${a.channels}ch`);
+  });
+
+  // 3) WAV → Opus 64k mono
+  const opusOut = path.join(outDir, 'audio_source_converted.opus');
+  await withTimer('WAV → Opus 64k mono', async () => {
+    const { execSync } = await import('node:child_process');
+    execSync(
+      `"${ffPath}" -y -i "${wavSrc}" -vn -c:a libopus -b:a 64k -ac 1 "${opusOut}"`,
+      { stdio: 'pipe' },
+    );
+    const probe = JSON.parse(
+      execSync(`"${ffprobePath}" -v error -print_format json -show_streams "${opusOut}"`).toString(),
+    );
+    const a = probe.streams.find((s) => s.codec_type === 'audio');
+    if (a?.codec_name !== 'opus') throw new Error(`expected opus codec, got ${a?.codec_name}`);
+    if (a.channels !== 1) throw new Error(`expected mono, got ${a.channels}ch`);
+    log(`  output: ${bytes(fs.statSync(opusOut).size)} opus ${a.sample_rate}Hz ${a.channels}ch`);
+  });
+}
+
 const which = process.argv[2] ?? 'all';
 const steps = {
   compress: step_compress,
@@ -498,6 +570,7 @@ const steps = {
   'upscale-ai': step_upscale_ai,
   video: step_video,
   'video-compress': step_video_compress,
+  audio: step_audio,
 };
 
 (async () => {

@@ -16,7 +16,7 @@
 
 ## What Forge does
 
-Forge is a desktop app for processing image and video files **in bulk**, entirely on your own machine. It has four tools, and you can pick whichever one matches what you're trying to do:
+Forge is a desktop app for processing image, video, and audio files **in bulk**, entirely on your own machine. It has five tools, and you can pick whichever one matches what you're trying to do:
 
 | Tool | Goal | Engine | Speed |
 |---|---|---|---|
@@ -24,6 +24,7 @@ Forge is a desktop app for processing image and video files **in bulk**, entirel
 | **Image compress** | Make images **smaller** + convert formats + control metadata | Sharp (libvips) | Very fast |
 | **Video upscale** | Make videos **bigger** and sharper | Real-ESRGAN per frame + FFmpeg | Slow — figure minutes per second of footage |
 | **Video compress** | Make videos **smaller** — downscale resolution and/or quality | FFmpeg single-pass H.264 | Fast |
+| **Audio convert** | Convert audio formats — MP3 ↔ WAV ↔ FLAC ↔ AAC ↔ OGG ↔ Opus, bitrate / sample rate / channel control | FFmpeg single-pass | Very fast |
 
 Everything is **local**. No uploads, no accounts, no per-use cost. Files never leave your machine.
 
@@ -236,6 +237,57 @@ This is the heaviest operation in Forge by a wide margin. It needs the AI engine
 
 ---
 
+### 🎵 Audio convert
+
+> Convert audio formats. Set bitrate, sample rate, channels.
+
+**The flow:**
+
+1. Drop audio files (MP3, WAV, FLAC, AAC, M4A, OGG, Opus, WMA, AMR, AIFF — most things)
+2. Pick an **output format**
+3. Pick a **bitrate** (ignored for lossless formats — see below)
+4. Pick a **sample rate** (or `Preserve`)
+5. Pick **channels** (Preserve / Mono / Stereo)
+6. Pick an output folder
+7. Click **Convert**
+
+**Format guide:**
+
+| Format | When to use | Lossy? |
+|---|---|---|
+| **MP3** | Universal compatibility — works in everything | Yes |
+| **M4A** | iTunes / Apple Music friendly | Yes (AAC) |
+| **AAC** | Same as M4A but raw, no MP4 container | Yes |
+| **WAV** | Lossless raw — huge files but simple | No |
+| **FLAC** | Lossless and compressed — best for archive | No |
+| **OGG** | Vorbis-based open format | Yes |
+| **Opus** | Modern, very efficient at low bitrates | Yes |
+
+**Bitrate guide (lossy formats):**
+
+| Bitrate | Use for |
+|---|---|
+| `64k` | Voice / podcast / phone-quality |
+| `128k` | Standard MP3, casual music |
+| `192k` | Common default — transparent for most ears |
+| `256k` | High-quality music |
+| `320k` | Maximum-quality MP3 |
+| `Preserve` | Match the source file's bitrate |
+
+For **WAV** and **FLAC**, bitrate is ignored — they're lossless. Sample rate and bit depth determine size.
+
+**Common recipes:**
+- "Make my podcast smaller": Format `MP3`, Bitrate `64k`, Sample rate `Preserve`, Channels `Mono`
+- "Convert iTunes M4A to MP3 for an old car stereo": Format `MP3`, Bitrate `192k`, Sample rate `44100`, Channels `Stereo`
+- "Archive a WAV losslessly": Format `FLAC`, others all `Preserve` — typically 50–60% smaller than WAV with zero quality loss
+- "Voice memo to text-friendly": Format `MP3`, Bitrate `64k`, Channels `Mono`
+
+**Output naming:** `<originalname>_converted.<ext>`.
+
+**Note on lossy → lossless:** Converting an MP3 to FLAC won't restore quality the source never had — you'll get a bigger file with the same audio. Only useful if your downstream tool requires lossless input.
+
+---
+
 ## Things that work everywhere
 
 ### Drag-and-drop, anywhere
@@ -307,6 +359,14 @@ The system prompt embeds this entire manual plus the current tab you're on. So i
 ### Videos (output)
 
 `mp4` (H.264 + AAC, with faststart)
+
+### Audio (input)
+
+`mp3`, `wav`, `flac`, `aac`, `m4a`, `ogg`, `opus`, `wma`, `amr`, `aiff/aif`, `mp2`, `mka`, `m4b`
+
+### Audio (output)
+
+`mp3`, `m4a` (AAC in MP4), `aac`, `wav`, `flac`, `ogg` (Vorbis), `opus`
 
 ---
 
