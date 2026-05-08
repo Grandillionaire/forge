@@ -233,3 +233,134 @@ body::after {
 }
 
 input, textarea { user-select: text; }
+
+/* ─── Manual prose ──────────────────────────────────────────────────────────
+   Styles for the rendered USAGE.md inside <ManualModal>. Forge dark palette,
+   tight vertical rhythm, mono for code, accent-blue for links. */
+.manual-prose {
+  color: #E5E7EB;
+  font-size: 14.5px;
+  line-height: 1.65;
+  user-select: text;
+}
+.manual-prose h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 28px 0 14px;
+  color: #F8F9FA;
+}
+.manual-prose h2 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 32px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  color: #F0F2F5;
+}
+.manual-prose h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 24px 0 10px;
+  color: #E5E7EB;
+}
+.manual-prose h3 em { font-style: normal; }
+.manual-prose h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 18px 0 6px;
+  color: #6BA0FF;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.manual-prose p { margin: 0 0 14px; }
+.manual-prose strong { color: #F8F9FA; font-weight: 600; }
+.manual-prose em { color: #C4B5FD; font-style: italic; }
+.manual-prose a {
+  color: #6BA0FF;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(107,160,255,0.25);
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.manual-prose a:hover {
+  color: #A78BFA;
+  border-bottom-color: rgba(167,139,250,0.6);
+}
+.manual-prose hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+  margin: 32px 0;
+}
+.manual-prose ul, .manual-prose ol {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+.manual-prose li { margin: 5px 0; }
+.manual-prose ul li::marker { color: rgba(79,142,255,0.7); }
+.manual-prose ol li::marker { color: rgba(79,142,255,0.7); font-weight: 600; }
+.manual-prose blockquote {
+  margin: 14px 0;
+  padding: 10px 14px;
+  border-left: 3px solid #4F8EFF;
+  background: rgba(79,142,255,0.05);
+  color: rgba(229,231,235,0.85);
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
+}
+.manual-prose code {
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  font-size: 0.88em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.05);
+  color: #C4B5FD;
+}
+.manual-prose pre {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.05);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.manual-prose pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #E5E7EB;
+  font-size: inherit;
+}
+.manual-prose table {
+  width: 100%;
+  margin: 14px 0;
+  border-collapse: collapse;
+  font-size: 13px;
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.manual-prose table th,
+.manual-prose table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+}
+.manual-prose table th {
+  font-weight: 600;
+  color: #A78BFA;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.manual-prose table tbody tr:hover {
+  background: rgba(255,255,255,0.018);
+}
+.manual-prose img { max-width: 100%; border-radius: 8px; }

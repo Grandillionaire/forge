@@ -9,6 +9,7 @@ import { VideoUpscaleView } from './components/VideoUpscaleView';
 import { VideoCompressView } from './components/VideoCompressView';
 import { DragOverlay } from './components/DragOverlay';
 import { OnboardingWizard } from './components/OnboardingWizard';
+import { ManualModal } from './components/ManualModal';
 
 type Tab = 'image-upscale' | 'image-compress' | 'video-upscale' | 'video-compress';
 
@@ -27,6 +28,8 @@ export default function App() {
   // Onboarding wizard. Shows automatically on first launch (decides via localStorage).
   // Setting forceOpen = true via the (?) icon in the Header re-opens it on demand.
   const [tourForceOpen, setTourForceOpen] = useState(false);
+  // Manual modal — opened by the book icon in the Header.
+  const [manualOpen, setManualOpen] = useState(false);
 
   useEffect(() => {
     window.forge.diagnostics().then((d) => setAi(d.realesrganAvailable));
@@ -58,10 +61,12 @@ export default function App() {
         forceOpen={tourForceOpen}
         onClose={() => setTourForceOpen(false)}
       />
+      <ManualModal open={manualOpen} onClose={() => setManualOpen(false)} />
       <Header
         aiAvailable={ai}
         installing={installing}
         onShowTour={() => setTourForceOpen(true)}
+        onShowManual={() => setManualOpen(true)}
       />
 
       <nav className="px-4 sm:px-6 mt-2">
