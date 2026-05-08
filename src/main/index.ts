@@ -4,6 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { stat } from 'node:fs/promises';
 import sharp from 'sharp';
+import log from 'electron-log/main';
 import { ffmpegPath, probeVideo } from './ffmpeg';
 import { defaultOutputDir, ensureDir } from './paths';
 import * as realesrgan from './realesrgan';
@@ -12,6 +13,8 @@ import { runImageCompress } from './jobs/imageCompress';
 import { runVideoUpscale } from './jobs/videoUpscale';
 import { runVideoCompress } from './jobs/videoCompress';
 import { openImage } from './imageDecode';
+
+log.transports.file.level = 'info';
 import { setupAutoUpdater } from './updater';
 import type {
   ImageCompressOptions,
@@ -240,34 +243,125 @@ function registerIpc(): void {
     jobControllers.delete(jobId);
   });
 
-  ipcMain.handle(
-    'job:imageUpscale',
-    async (e, items: unknown, options: unknown) => {
-      if (!isJobItems(items) || !isImageUpscaleOptions(options)) return { jobId: '', items: [] };
-      return runWithController(items, options, e, runImageUpscale);
-    },
+  // Each job handler is defensive in three layers:
+  //   1. Validate inputs and *log + return a structured failure* if invalid,
+  //      so the UI can show the user what's wrong instead of an empty result.
+  //   2. Wrap the run in try/catch so unhandled exceptions in the pipeline
+  //      surface as per-item errors in the result, not silent IPC failures.
+  //   3. Log job lifecycle (start, validation issues, exception) to main.log
+  //      so we can debug from the user's machine without a debugger.
+  ipcMain.handle('job:imageUpscale', (e, items, options) =>
+    runJobHandler('imageUpscale', e, items, options, isImageUpscaleOptions, runImageUpscale),
   );
-  ipcMain.handle(
-    'job:imageCompress',
-    async (e, items: unknown, options: unknown) => {
-      if (!isJobItems(items) || !isImageCompressOptions(options)) return { jobId: '', items: [] };
-      return runWithController(items, options, e, runImageCompress);
-    },
+  ipcMain.handle('job:imageCompress', (e, items, options) =>
+    runJobHandler('imageCompress', e, items, options, isImageCompressOptions, runImageCompress),
   );
-  ipcMain.handle(
-    'job:videoUpscale',
-    async (e, items: unknown, options: unknown) => {
-      if (!isJobItems(items) || !isVideoUpscaleOptions(options)) return { jobId: '', items: [] };
-      return runWithController(items, options, e, runVideoUpscale);
-    },
+  ipcMain.handle('job:videoUpscale', (e, items, options) =>
+    runJobHandler('videoUpscale', e, items, options, isVideoUpscaleOptions, runVideoUpscale),
   );
-  ipcMain.handle(
-    'job:videoCompress',
-    async (e, items: unknown, options: unknown) => {
-      if (!isJobItems(items) || !isVideoCompressOptions(options)) return { jobId: '', items: [] };
-      return runWithController(items, options, e, runVideoCompress);
-    },
+  ipcMain.handle('job:videoCompress', (e, items, options) =>
+    runJobHandler('videoCompress', e, items, options, isVideoCompressOptions, runVideoCompress),
   );
+}
+
+/**
+ * Wraps a job pipeline with validation, logging, and exception capture.
+ *
+ * Always returns a JobResult — never throws back through IPC. If the inputs
+ * are invalid, returns a result where every item has `ok: false` with a
+ * specific error message. If the pipeline itself throws, every item still
+ * gets an error rather than the renderer being stuck on "Queued" forever.
+ */
+async function runJobHandler<O>(
+  jobName: string,
+  e: Electron.IpcMainInvokeEvent,
+  items: unknown,
+  options: unknown,
+  validateOptions: (o: unknown) => o is O,
+  fn: (a: {
+    jobId: string;
+    items: JobItem[];
+    options: O;
+    onProgress: (ev: ProgressEvent) => void;
+    signal: AbortSignal;
+  }) => Promise<unknown>,
+) {
+  // Itemize what's wrong so failures show up in the UI per-row, not silently.
+  if (!Array.isArray(items) || items.length === 0) {
+    log.warn(`[${jobName}] rejected: items is not a non-empty array`);
+    return { jobId: '', items: [] };
+  }
+
+  if (!validateOptions(options)) {
+    log.warn(`[${jobName}] rejected: invalid options`, options);
+    return {
+      jobId: '',
+      items: items.map((it: { id?: unknown; inputPath?: unknown }, i) => ({
+        itemId: typeof it?.id === 'string' ? it.id : `?${i}`,
+        inputPath: typeof it?.inputPath === 'string' ? it.inputPath : '',
+        ok: false,
+        error: 'Invalid options — please re-check the form values',
+      })),
+    };
+  }
+
+  // Per-item validation: surface only the specific items that failed,
+  // run the rest. Beats rejecting the whole batch silently.
+  const valid: JobItem[] = [];
+  const invalid: Array<{ itemId: string; inputPath: string; error: string }> = [];
+  for (const raw of items) {
+    if (!isJobItem(raw)) {
+      const it = raw as { id?: unknown; inputPath?: unknown };
+      invalid.push({
+        itemId: typeof it?.id === 'string' ? it.id : '?',
+        inputPath: typeof it?.inputPath === 'string' ? it.inputPath : '',
+        error: 'Unsupported file type or invalid path',
+      });
+      log.warn(`[${jobName}] item rejected:`, raw);
+      continue;
+    }
+    valid.push(raw);
+  }
+
+  if (valid.length === 0) {
+    return {
+      jobId: '',
+      items: invalid.map((x) => ({ ...x, ok: false })),
+    };
+  }
+
+  log.info(`[${jobName}] starting: ${valid.length} item(s)`);
+  try {
+    const result = (await runWithController(valid, options, e, fn)) as {
+      jobId: string;
+      items: Array<{ itemId: string; inputPath: string; ok: boolean; error?: string }>;
+    };
+    log.info(
+      `[${jobName}] finished: ` +
+        `${result.items.filter((r) => r.ok).length} ok, ` +
+        `${result.items.filter((r) => !r.ok).length} failed`,
+    );
+    // Stitch in the items that failed validation so the UI updates them too.
+    return {
+      ...result,
+      items: [...result.items, ...invalid.map((x) => ({ ...x, ok: false }))],
+    };
+  } catch (err) {
+    const msg = (err as Error).message ?? String(err);
+    log.error(`[${jobName}] threw:`, err);
+    return {
+      jobId: '',
+      items: [
+        ...valid.map((it) => ({
+          itemId: it.id,
+          inputPath: it.inputPath,
+          ok: false,
+          error: `Forge crashed during ${jobName}: ${msg}`,
+        })),
+        ...invalid.map((x) => ({ ...x, ok: false })),
+      ],
+    };
+  }
 }
 
 /* ── Option validators ──────────────────────────────────────────────────────
